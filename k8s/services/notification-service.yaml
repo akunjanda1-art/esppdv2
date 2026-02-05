@@ -1,0 +1,74 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: esppd
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: your-registry/
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8005
+          envFrom:
+            - configMapRef:
+                name: esppd-config
+            - secretRef:
+                name: esppd-secrets
+          env:
+            - name: NOTIFICATION_SERVICE_PORT
+              value: "8005"
+          volumeMounts:
+            - name: jwt-keys
+              mountPath: /secrets
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8005
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8005
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: esppd-jwt
+            items:
+              - key: jwt_private.pem
+                path: jwt_private.pem
+              - key: jwt_public.pem
+                path: jwt_public.pem
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: esppd
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - name: http
+      port: 8005
+      targetPort: 8005

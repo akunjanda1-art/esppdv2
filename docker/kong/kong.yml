@@ -1,0 +1,67 @@
+﻿_format_version: "3.0"
+_transform: true
+
+services:
+  - name: auth-service
+    url: http://auth-service:8001
+    routes:
+      - name: auth-route
+        paths:
+          - /v1/auth
+        strip_path: false
+
+  - name: spd-service
+    url: http://spd-service:8002
+    routes:
+      - name: spd-route
+        paths:
+          - /v1/spds
+        strip_path: false
+
+  - name: approval-service
+    url: http://approval-service:8003
+    routes:
+      - name: approval-route
+        paths:
+          - /v1/approvals
+        strip_path: false
+
+  - name: document-service
+    url: http://document-service:8004
+    routes:
+      - name: document-route
+        paths:
+          - /v1/documents
+        strip_path: false
+
+  - name: notification-service
+    url: http://notification-service:8005
+    routes:
+      - name: notification-route
+        paths:
+          - /v1/notifications
+        strip_path: false
+
+  - name: reporting-service
+    url: http://reporting-service:8006
+    routes:
+      - name: reporting-route
+        paths:
+          - /v1/reports
+        strip_path: false
+
+  - name: budget-service
+    url: http://budget-service:8007
+    routes:
+      - name: budget-route
+        paths:
+          - /v1/budgets
+        strip_path: false
+
+  - name: audit-service
+    url: http://audit-service:8008
+    routes:
+      - name: audit-route
+        paths:
+          - /v1/audit
+        strip_path: false

@@ -1,0 +1,61 @@
+﻿openapi: 3.0.3
+info:
+  title: eSPPD Reporting Service
+  version: 0.1.0
+servers:
+  - url: http://localhost:8006
+paths:
+  /v1/reports/spds/summary:
+    get:
+      summary: SPD summary (JSON)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: months
+          schema: { type: integer, default: 6 }
+      responses:
+        '200':
+          description: Summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  by_status:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        status: { type: string }
+                        count: { type: integer, format: int64 }
+                  by_month:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        month: { type: string }
+                        status: { type: string }
+                        count: { type: integer, format: int64 }
+  /v1/reports/spds/summary.csv:
+    get:
+      summary: SPD summary (CSV)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: months
+          schema: { type: integer, default: 6 }
+      responses:
+        '200':
+          description: CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

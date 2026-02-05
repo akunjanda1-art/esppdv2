@@ -1,0 +1,112 @@
+﻿openapi: 3.0.3
+info:
+  title: eSPPD SPD Service
+  version: 0.1.0
+servers:
+  - url: http://localhost:8002
+paths:
+  /v1/spds/:
+    post:
+      summary: Create SPD (draft)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSPDRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SPD'
+    get:
+      summary: List SPDs
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        '200':
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/SPD' }
+                  limit: { type: integer }
+                  offset: { type: integer }
+  /v1/spds/{id}:
+    get:
+      summary: Get SPD
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: SPD
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SPD'
+  /v1/spds/{id}/submit:
+    post:
+      summary: Submit SPD
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: SPD
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SPD'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CreateSPDRequest:
+      type: object
+      required: [nomor_surat, unit_id]
+      properties:
+        nomor_surat: { type: string }
+        employee_id: { type: integer, format: int64, nullable: true }
+        unit_id: { type: integer, format: int64 }
+        purpose: { type: string }
+        total_cost: { type: string }
+    SPD:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        nomor_surat: { type: string }
+        employee_id: { type: integer, format: int64, nullable: true }
+        unit_id: { type: integer, format: int64 }
+        purpose: { type: string }
+        total_cost: { type: string }
+        status: { type: string }
+        created_by: { type: integer, format: int64 }
+        created_at: { type: string }
+        updated_at: { type: string }

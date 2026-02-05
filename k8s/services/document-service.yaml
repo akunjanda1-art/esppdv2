@@ -1,0 +1,74 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: document-service
+  namespace: esppd
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: document-service
+  template:
+    metadata:
+      labels:
+        app: document-service
+    spec:
+      containers:
+        - name: document-service
+          image: your-registry/
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8004
+          envFrom:
+            - configMapRef:
+                name: esppd-config
+            - secretRef:
+                name: esppd-secrets
+          env:
+            - name: DOCUMENT_SERVICE_PORT
+              value: "8004"
+          volumeMounts:
+            - name: jwt-keys
+              mountPath: /secrets
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8004
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8004
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: esppd-jwt
+            items:
+              - key: jwt_private.pem
+                path: jwt_private.pem
+              - key: jwt_public.pem
+                path: jwt_public.pem
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: document-service
+  namespace: esppd
+spec:
+  selector:
+    app: document-service
+  ports:
+    - name: http
+      port: 8004
+      targetPort: 8004

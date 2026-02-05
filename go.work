@@ -1,0 +1,13 @@
+﻿go 1.22
+
+use (
+	./shared
+	./services/auth-service
+	./services/spd-service
+	./services/approval-service
+	./services/document-service
+	./services/notification-service
+	./services/reporting-service
+	./services/budget-service
+	./services/audit-service
+)

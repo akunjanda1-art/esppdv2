@@ -1,0 +1,66 @@
+﻿apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: esppd-ingress
+  namespace: esppd
+spec:
+  rules:
+    - host: esppd.local
+      http:
+        paths:
+          - path: /v1/auth
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8001
+          - path: /v1/spds
+            pathType: Prefix
+            backend:
+              service:
+                name: spd-service
+                port:
+                  number: 8002
+          - path: /v1/approvals
+            pathType: Prefix
+            backend:
+              service:
+                name: approval-service
+                port:
+                  number: 8003
+          - path: /v1/documents
+            pathType: Prefix
+            backend:
+              service:
+                name: document-service
+                port:
+                  number: 8004
+          - path: /v1/notifications
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8005
+          - path: /v1/reports
+            pathType: Prefix
+            backend:
+              service:
+                name: reporting-service
+                port:
+                  number: 8006
+          - path: /v1/budgets
+            pathType: Prefix
+            backend:
+              service:
+                name: budget-service
+                port:
+                  number: 8007
+          - path: /v1/audit
+            pathType: Prefix
+            backend:
+              service:
+                name: audit-service
+                port:
+                  number: 8008

@@ -1,0 +1,58 @@
+﻿openapi: 3.0.3
+info:
+  title: eSPPD Document Service
+  version: 0.1.0
+servers:
+  - url: http://localhost:8004
+paths:
+  /v1/documents/spds/{spd_id}/generate:
+    post:
+      summary: Generate a document for an SPD
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: spd_id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                format:
+                  type: string
+                  enum: [pdf, docx, xlsx]
+      responses:
+        '202':
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job_id: { type: string }
+                  status: { type: string }
+        '201':
+          description: Created (sync fallback)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResult'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    DocumentResult:
+      type: object
+      properties:
+        document_id: { type: integer, format: int64 }
+        spd_id: { type: integer, format: int64 }
+        format: { type: string }
+        object_key: { type: string }
+        created_at: { type: string }

@@ -1,0 +1,100 @@
+﻿openapi: 3.0.3
+info:
+  title: eSPPD Approval Service
+  version: 0.1.0
+servers:
+  - url: http://localhost:8003
+paths:
+  /v1/approvals/pending:
+    get:
+      summary: List pending approvals
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        '200':
+          description: Pending approvals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Approval' }
+  /v1/approvals/{spd_id}/approve:
+    post:
+      summary: Approve an SPD
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: spd_id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Decision'
+      responses:
+        '200':
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Approval'
+  /v1/approvals/{spd_id}/reject:
+    post:
+      summary: Reject an SPD
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: spd_id
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Decision'
+      responses:
+        '200':
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Approval'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Decision:
+      type: object
+      properties:
+        comment: { type: string, nullable: true }
+    Approval:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        spd_id: { type: integer, format: int64 }
+        step: { type: integer }
+        approver_id: { type: integer, format: int64, nullable: true }
+        status: { type: string }
+        comment: { type: string, nullable: true }
+        decided_by: { type: integer, format: int64, nullable: true }
+        decided_at: { type: string, nullable: true }
+        created_at: { type: string }
+        updated_at: { type: string }

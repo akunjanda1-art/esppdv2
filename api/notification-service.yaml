@@ -1,0 +1,40 @@
+﻿openapi: 3.0.3
+info:
+  title: eSPPD Notification Service
+  version: 0.1.0
+servers:
+  - url: http://localhost:8005
+paths:
+  /v1/notifications/test:
+    post:
+      summary: Send a test notification (queued)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipient]
+              properties:
+                channel: { type: string, example: email }
+                recipient: { type: string }
+                subject: { type: string }
+                body: { type: string }
+      responses:
+        '202':
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  status: { type: string }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

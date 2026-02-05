@@ -1,0 +1,33 @@
+﻿# Env / secrets
+.env
+*.env
+secrets/
+**/jwt_private.pem
+**/jwt_public.pem
+
+# Go
+**/bin/
+**/*.exe
+**/*.dll
+**/*.so
+**/*.dylib
+**/*.test
+**/*.out
+**/vendor/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Node
+node_modules/
+
+# Docker
+**/.docker/

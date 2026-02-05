@@ -1,0 +1,44 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - shared
+          - services/auth-service
+          - services/spd-service
+          - services/approval-service
+          - services/document-service
+          - services/notification-service
+          - services/reporting-service
+          - services/budget-service
+          - services/audit-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+
+      - name: gofmt (check)
+        run: |
+          test -z "$(gofmt -l . | head -n 1)"
+
+      - name: Unit tests
+        working-directory: ${{ matrix.module }}
+        run: |
+          go test ./...
+
+      - name: go vet
+        working-directory: ${{ matrix.module }}
+        run: |
+          go vet ./...

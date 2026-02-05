@@ -1,0 +1,33 @@
+﻿apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: esppd-config
+  namespace: esppd
+data:
+  ENV: "production"
+  LOG_LEVEL: "info"
+
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "esppd"
+  POSTGRES_USER: "esppd"
+  POSTGRES_SSLMODE: "require"
+
+  REDIS_ADDR: "redis:6379"
+  REDIS_DB: "0"
+
+  NATS_URL: "nats://nats:4222"
+  NATS_STREAM: "esppd"
+
+  MINIO_ENDPOINT: "minio:9000"
+  MINIO_USE_SSL: "false"
+  MINIO_BUCKET: "esppd-docs"
+
+  JWT_ISSUER: "esppd"
+  JWT_AUDIENCE: "esppd-users"
+  JWT_ACCESS_TTL: "15m"
+  JWT_REFRESH_TTL: "168h"
+  JWT_PRIVATE_KEY: "/secrets/jwt_private.pem"
+  JWT_PUBLIC_KEY: "/secrets/jwt_public.pem"
+
+  RATE_LIMIT_PER_MIN: "120"

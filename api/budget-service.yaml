@@ -1,0 +1,68 @@
+﻿openapi: 3.0.3
+info:
+  title: eSPPD Budget Service
+  version: 0.1.0
+servers:
+  - url: http://localhost:8007
+paths:
+  /v1/budgets/:
+    post:
+      summary: Create a budget
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBudgetRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+  /v1/budgets/{id}:
+    get:
+      summary: Get a budget
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Budget
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CreateBudgetRequest:
+      type: object
+      required: [unit_id]
+      properties:
+        unit_id: { type: integer, format: int64 }
+        amount: { type: string }
+        source: { type: string }
+        description: { type: string }
+    Budget:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        unit_id: { type: integer, format: int64 }
+        amount: { type: string }
+        source: { type: string }
+        description: { type: string }
+        created_by: { type: integer, format: int64 }
+        created_at: { type: string }
+        updated_at: { type: string }

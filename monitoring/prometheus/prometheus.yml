@@ -1,0 +1,40 @@
+﻿global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: auth-service
+    static_configs:
+      - targets: ["auth-service:8001"]
+
+  - job_name: spd-service
+    static_configs:
+      - targets: ["spd-service:8002"]
+
+  - job_name: approval-service
+    static_configs:
+      - targets: ["approval-service:8003"]
+
+  - job_name: document-service
+    static_configs:
+      - targets: ["document-service:8004"]
+
+  - job_name: notification-service
+    static_configs:
+      - targets: ["notification-service:8005"]
+
+  - job_name: reporting-service
+    static_configs:
+      - targets: ["reporting-service:8006"]
+
+  - job_name: budget-service
+    static_configs:
+      - targets: ["budget-service:8007"]
+
+  - job_name: audit-service
+    static_configs:
+      - targets: ["audit-service:8008"]
+
+  - job_name: nats
+    metrics_path: /varz
+    static_configs:
+      - targets: ["nats:8222"]
