@@ -1,7 +1,6 @@
 FROM golang:1.22-alpine AS build
 WORKDIR /src
 
-COPY go.work ./
 COPY shared/go.mod shared/go.sum ./shared/
 COPY services/notification-service/go.mod services/notification-service/go.sum ./services/notification-service/
 
@@ -18,4 +17,3 @@ COPY --from=build /out/notification-service /notification-service
 EXPOSE 8005
 USER nonroot:nonroot
 ENTRYPOINT ["/notification-service"]
-

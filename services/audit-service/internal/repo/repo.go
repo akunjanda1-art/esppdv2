@@ -1,4 +1,4 @@
-﻿package repo
+package repo
 
 import (
 	"context"
@@ -67,7 +67,7 @@ type QueryInput struct {
 
 func (r *Repo) Query(ctx context.Context, userID int64, role string, q QueryInput) ([]AuditRow, error) {
 	out := make([]AuditRow, 0, q.Limit)
-	err := r.pool.WithTx(ctx, pgx.TxOptions{ReadOnly: true}, func(tx pgx.Tx) error {
+	err := r.pool.WithTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly}, func(tx pgx.Tx) error {
 		if err := db.SetRLSContext(ctx, tx, userID, role); err != nil {
 			return err
 		}

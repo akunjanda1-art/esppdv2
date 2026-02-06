@@ -1,4 +1,4 @@
-﻿package repo
+package repo
 
 import (
 	"context"
@@ -29,7 +29,7 @@ type MonthlyStatusCount struct {
 
 func (r *Repo) SPDCountsByStatus(ctx context.Context, userID int64, role string) ([]StatusCount, error) {
 	out := make([]StatusCount, 0, 8)
-	err := r.pool.WithTx(ctx, pgx.TxOptions{ReadOnly: true}, func(tx pgx.Tx) error {
+	err := r.pool.WithTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly}, func(tx pgx.Tx) error {
 		if err := db.SetRLSContext(ctx, tx, userID, role); err != nil {
 			return err
 		}
@@ -58,7 +58,7 @@ func (r *Repo) SPDCountsByStatus(ctx context.Context, userID int64, role string)
 
 func (r *Repo) SPDMonthlyCounts(ctx context.Context, userID int64, role string, months int) ([]MonthlyStatusCount, error) {
 	out := make([]MonthlyStatusCount, 0, months*8)
-	err := r.pool.WithTx(ctx, pgx.TxOptions{ReadOnly: true}, func(tx pgx.Tx) error {
+	err := r.pool.WithTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly}, func(tx pgx.Tx) error {
 		if err := db.SetRLSContext(ctx, tx, userID, role); err != nil {
 			return err
 		}

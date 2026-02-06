@@ -1,4 +1,4 @@
-﻿package repo
+package repo
 
 import (
 	"context"
@@ -105,7 +105,7 @@ func (r *Repo) Reject(ctx context.Context, userID int64, role string, spdID int6
 
 func (r *Repo) ListPending(ctx context.Context, userID int64, role string, limit, offset int) ([]ApprovalRow, error) {
 	out := make([]ApprovalRow, 0, limit)
-	err := r.pool.WithTx(ctx, pgx.TxOptions{ReadOnly: true}, func(tx pgx.Tx) error {
+	err := r.pool.WithTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly}, func(tx pgx.Tx) error {
 		if err := db.SetRLSContext(ctx, tx, userID, role); err != nil {
 			return err
 		}

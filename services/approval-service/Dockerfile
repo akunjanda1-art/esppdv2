@@ -1,7 +1,6 @@
 FROM golang:1.22-alpine AS build
 WORKDIR /src
 
-COPY go.work ./
 COPY shared/go.mod shared/go.sum ./shared/
 COPY services/approval-service/go.mod services/approval-service/go.sum ./services/approval-service/
 
@@ -18,4 +17,3 @@ COPY --from=build /out/approval-service /approval-service
 EXPOSE 8003
 USER nonroot:nonroot
 ENTRYPOINT ["/approval-service"]
-

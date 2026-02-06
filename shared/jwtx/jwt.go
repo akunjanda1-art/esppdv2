@@ -1,4 +1,4 @@
-﻿package jwtx
+package jwtx
 
 import (
 	"crypto/rsa"

@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -16,11 +16,11 @@ import (
 	"esppd.local/shared/jwtx"
 	"esppd.local/shared/logging"
 	"esppd.local/shared/metrics"
+	"esppd.local/shared/redisx"
 	"esppd.local/spd-service/internal/http"
 	"esppd.local/spd-service/internal/repo"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/nats-io/nats.go"
@@ -30,6 +30,7 @@ import (
 func main() {
 	common := config.LoadCommon("spd-service", "SPD_SERVICE_PORT", 8002)
 	pg := config.LoadPostgres()
+	redisCfg := config.LoadRedis()
 	jwtCfg := config.LoadJWT()
 	cryptoCfg := config.LoadCrypto()
 	natsCfg := config.LoadNATS()
@@ -53,6 +54,14 @@ func main() {
 		log.Fatal().Err(err).Msg("connect postgres")
 	}
 	defer pool.Close()
+
+	rdb := redisx.NewClient(redisCfg)
+	if err := redisx.Ping(ctx, rdb); err != nil {
+		log.Warn().Err(err).Msg("redis unavailable; falling back to in-memory rate limit")
+		rdb = nil
+	} else {
+		defer func() { _ = rdb.Close() }()
+	}
 
 	verifier, err := jwtx.NewVerifierFromFile(jwtCfg.PublicKey, jwtCfg.Issuer, jwtCfg.Audience)
 	if err != nil {
@@ -79,7 +88,12 @@ func main() {
 	app.Use(requestid.New())
 	app.Use(recover.New())
 	app.Use(cors.New())
-	app.Use(limiter.New(limiter.Config{Max: common.RateLimitPerMin, Expiration: time.Minute}))
+	app.Use(httpx.RateLimit(httpx.RateLimitConfig{
+		Service: common.ServiceName,
+		Redis:   rdb,
+		Max:     common.RateLimitPerMin,
+		Window:  time.Minute,
+	}))
 
 	m := metrics.NewHTTPMetrics(common.ServiceName)
 	app.Use(m.Middleware())

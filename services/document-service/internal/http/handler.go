@@ -1,4 +1,4 @@
-﻿package http
+package http
 
 import (
 	"bytes"
@@ -190,12 +190,16 @@ func buildDocument(format, nomorSurat, purpose, total string) ([]byte, string, s
 		}
 		return buf.Bytes(), "application/pdf", "pdf", nil
 	case "docx":
-		// Placeholder: a real DOCX generator can be plugged in.
-		b := []byte("SPD\nNomor: " + nomorSurat + "\nTujuan: " + purpose + "\nTotal: " + total + "\n")
+		b, err := buildDOCX(nomorSurat, purpose, total)
+		if err != nil {
+			return nil, "", "", err
+		}
 		return b, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx", nil
 	case "xlsx":
-		// Placeholder: a real XLSX generator can be plugged in.
-		b := []byte("nomor_surat,purpose,total\n" + nomorSurat + "," + purpose + "," + total + "\n")
+		b, err := buildXLSX(nomorSurat, purpose, total)
+		if err != nil {
+			return nil, "", "", err
+		}
 		return b, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx", nil
 	default:
 		return nil, "", "", fiber.NewError(http.StatusBadRequest, "unsupported format")

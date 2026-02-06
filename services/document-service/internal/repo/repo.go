@@ -1,4 +1,4 @@
-﻿package repo
+package repo
 
 import (
 	"context"
@@ -28,7 +28,7 @@ type SPDForDoc struct {
 
 func (r *Repo) GetSPDForDoc(ctx context.Context, userID int64, role string, spdID int64) (*SPDForDoc, error) {
 	var out *SPDForDoc
-	err := r.pool.WithTx(ctx, pgx.TxOptions{ReadOnly: true}, func(tx pgx.Tx) error {
+	err := r.pool.WithTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly}, func(tx pgx.Tx) error {
 		if err := db.SetRLSContext(ctx, tx, userID, role); err != nil {
 			return err
 		}

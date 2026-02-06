@@ -33,7 +33,7 @@ Data Layer:
 ```
 
 ## Services
-- `auth-service`: JWT RS256, refresh tokens, MFA stub, LDAP stub
+- `auth-service`: JWT RS256, refresh tokens, MFA (TOTP), LDAP auth
 - `spd-service`: SPD CRUD, encrypted fields, full-text search
 - `approval-service`: Workflow approvals, concurrency-safe
 - `document-service`: PDF/DOCX/Excel generation queue
@@ -76,7 +76,7 @@ Manifests are in `k8s/` with deployments, services, ingress, secrets, and config
 3. Register routes in gateway config
 
 ## Legacy Code
-The previous monolith has been moved to `legacy/` for reference only.
+The previous monolith has been removed after full rewrite.
 
 ---
 

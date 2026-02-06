@@ -1,12 +1,15 @@
-﻿package http
+package http
 
 import (
 	"bytes"
 	"encoding/csv"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"esppd.local/reporting-service/internal/repo"
+	"esppd.local/shared/cachex"
 	"esppd.local/shared/httpx"
 	"esppd.local/shared/jwtx"
 	"github.com/gofiber/fiber/v2"
@@ -15,10 +18,11 @@ import (
 type Handler struct {
 	repo     *repo.Repo
 	verifier *jwtx.Verifier
+	cache    *cachex.Cache
 }
 
-func NewHandler(r *repo.Repo, v *jwtx.Verifier) *Handler {
-	return &Handler{repo: r, verifier: v}
+func NewHandler(r *repo.Repo, v *jwtx.Verifier, cache *cachex.Cache) *Handler {
+	return &Handler{repo: r, verifier: v, cache: cache}
 }
 
 func (h *Handler) RegisterRoutes(r fiber.Router) {
@@ -34,6 +38,14 @@ func (h *Handler) Summary(c *fiber.Ctx) error {
 	}
 	months := clampInt(parseInt(c.Query("months"), 6), 1, 36)
 
+	cacheKey := fmt.Sprintf("spds:summary:uid:%d:role:%s:months:%d", a.UserID, a.Role, months)
+	if h.cache != nil {
+		var cached fiber.Map
+		if ok, err := h.cache.GetJSON(c.Context(), cacheKey, &cached); err == nil && ok {
+			return c.JSON(cached)
+		}
+	}
+
 	byStatus, err := h.repo.SPDCountsByStatus(c.Context(), a.UserID, a.Role)
 	if err != nil {
 		return err
@@ -43,7 +55,11 @@ func (h *Handler) Summary(c *fiber.Ctx) error {
 		return err
 	}
 
-	return c.JSON(fiber.Map{"by_status": byStatus, "by_month": byMonth})
+	out := fiber.Map{"by_status": byStatus, "by_month": byMonth}
+	if h.cache != nil {
+		_ = h.cache.SetJSON(c.Context(), cacheKey, out, 15*time.Second)
+	}
+	return c.JSON(out)
 }
 
 func (h *Handler) SummaryCSV(c *fiber.Ctx) error {
@@ -52,6 +68,15 @@ func (h *Handler) SummaryCSV(c *fiber.Ctx) error {
 		return fiber.NewError(http.StatusUnauthorized, "unauthorized")
 	}
 	months := clampInt(parseInt(c.Query("months"), 6), 1, 36)
+
+	cacheKey := fmt.Sprintf("spds:summarycsv:uid:%d:role:%s:months:%d", a.UserID, a.Role, months)
+	if h.cache != nil {
+		if b, ok, err := h.cache.Get(c.Context(), cacheKey); err == nil && ok {
+			c.Set("Content-Type", "text/csv; charset=utf-8")
+			c.Set("Content-Disposition", "attachment; filename=spd_summary.csv")
+			return c.Send(b)
+		}
+	}
 
 	rows, err := h.repo.SPDMonthlyCounts(c.Context(), a.UserID, a.Role, months)
 	if err != nil {
@@ -68,7 +93,11 @@ func (h *Handler) SummaryCSV(c *fiber.Ctx) error {
 
 	c.Set("Content-Type", "text/csv; charset=utf-8")
 	c.Set("Content-Disposition", "attachment; filename=spd_summary.csv")
-	return c.Send(buf.Bytes())
+	b := buf.Bytes()
+	if h.cache != nil {
+		_ = h.cache.Set(c.Context(), cacheKey, b, 15*time.Second)
+	}
+	return c.Send(b)
 }
 
 func parseInt(s string, def int) int {

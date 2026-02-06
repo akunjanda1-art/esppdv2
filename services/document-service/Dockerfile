@@ -1,7 +1,6 @@
 FROM golang:1.22-alpine AS build
 WORKDIR /src
 
-COPY go.work ./
 COPY shared/go.mod shared/go.sum ./shared/
 COPY services/document-service/go.mod services/document-service/go.sum ./services/document-service/
 
@@ -18,4 +17,3 @@ COPY --from=build /out/document-service /document-service
 EXPOSE 8004
 USER nonroot:nonroot
 ENTRYPOINT ["/document-service"]
-

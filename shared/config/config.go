@@ -1,4 +1,4 @@
-﻿package config
+package config
 
 import (
 	"fmt"
@@ -154,25 +154,25 @@ func LoadMinIO() MinIO {
 }
 
 type JWT struct {
-	Issuer       string
-	Audience     string
-	AccessTTL    time.Duration
-	RefreshTTL   time.Duration
-	PrivateKey   string
-	PublicKey    string
+	Issuer               string
+	Audience             string
+	AccessTTL            time.Duration
+	RefreshTTL           time.Duration
+	PrivateKey           string
+	PublicKey            string
 	PrivateKeyPassphrase string
-	RequiredKID  string
-	EnableKeyGen bool
+	RequiredKID          string
+	EnableKeyGen         bool
 }
 
 func LoadJWT() JWT {
 	return JWT{
-		Issuer:     GetString("JWT_ISSUER", "esppd"),
-		Audience:   GetString("JWT_AUDIENCE", "esppd-users"),
-		AccessTTL:  GetDuration("JWT_ACCESS_TTL", 15*time.Minute),
-		RefreshTTL: GetDuration("JWT_REFRESH_TTL", 7*24*time.Hour),
-		PrivateKey: GetString("JWT_PRIVATE_KEY", "/secrets/jwt_private.pem"),
-		PublicKey:  GetString("JWT_PUBLIC_KEY", "/secrets/jwt_public.pem"),
+		Issuer:               GetString("JWT_ISSUER", "esppd"),
+		Audience:             GetString("JWT_AUDIENCE", "esppd-users"),
+		AccessTTL:            GetDuration("JWT_ACCESS_TTL", 15*time.Minute),
+		RefreshTTL:           GetDuration("JWT_REFRESH_TTL", 7*24*time.Hour),
+		PrivateKey:           GetString("JWT_PRIVATE_KEY", "/secrets/jwt_private.pem"),
+		PublicKey:            GetString("JWT_PUBLIC_KEY", "/secrets/jwt_public.pem"),
 		PrivateKeyPassphrase: GetString("JWT_PRIVATE_KEY_PASSPHRASE", ""),
 	}
 }
@@ -184,5 +184,31 @@ type Crypto struct {
 func LoadCrypto() Crypto {
 	return Crypto{
 		DataKeyBase64: GetString("DATA_ENC_KEY_BASE64", ""),
+	}
+}
+
+type LDAP struct {
+	Mode               string
+	URL                string
+	BindDN             string
+	BindPassword       string
+	BaseDN             string
+	UserFilter         string
+	StartTLS           bool
+	InsecureSkipVerify bool
+	Timeout            time.Duration
+}
+
+func LoadLDAP() LDAP {
+	return LDAP{
+		Mode:               GetString("AUTH_LDAP_MODE", "disabled"),
+		URL:                GetString("LDAP_URL", ""),
+		BindDN:             GetString("LDAP_BIND_DN", ""),
+		BindPassword:       GetString("LDAP_BIND_PASSWORD", ""),
+		BaseDN:             GetString("LDAP_BASE_DN", ""),
+		UserFilter:         GetString("LDAP_USER_FILTER", "(uid={username})"),
+		StartTLS:           GetBool("LDAP_STARTTLS", false),
+		InsecureSkipVerify: GetBool("LDAP_INSECURE_SKIP_VERIFY", false),
+		Timeout:            GetDuration("LDAP_TIMEOUT", 5*time.Second),
 	}
 }

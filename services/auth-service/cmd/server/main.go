@@ -1,24 +1,27 @@
-﻿package main
+package main
 
 import (
 	"context"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"esppd.local/auth-service/internal/http"
+	"esppd.local/auth-service/internal/ldap"
+	"esppd.local/auth-service/internal/repo"
 	"esppd.local/shared/config"
+	"esppd.local/shared/cryptox"
 	"esppd.local/shared/db"
 	"esppd.local/shared/httpx"
 	"esppd.local/shared/jwtx"
 	"esppd.local/shared/logging"
 	"esppd.local/shared/metrics"
-	"esppd.local/auth-service/internal/http"
-	"esppd.local/auth-service/internal/repo"
+	"esppd.local/shared/redisx"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/rs/zerolog/log"
@@ -27,7 +30,10 @@ import (
 func main() {
 	common := config.LoadCommon("auth-service", "AUTH_SERVICE_PORT", 8001)
 	pg := config.LoadPostgres()
+	redisCfg := config.LoadRedis()
 	jwtCfg := config.LoadJWT()
+	cryptoCfg := config.LoadCrypto()
+	ldapCfg := config.LoadLDAP()
 
 	_ = logging.New(common.ServiceName, common.LogLevel, common.Env)
 
@@ -40,6 +46,22 @@ func main() {
 	}
 	defer pool.Close()
 
+	rdb := redisx.NewClient(redisCfg)
+	if err := redisx.Ping(ctx, rdb); err != nil {
+		log.Warn().Err(err).Msg("redis unavailable; falling back to in-memory rate limit")
+		rdb = nil
+	} else {
+		defer func() { _ = rdb.Close() }()
+	}
+
+	if cryptoCfg.DataKeyBase64 == "" || strings.HasPrefix(cryptoCfg.DataKeyBase64, "REPLACE_") {
+		log.Fatal().Msg("DATA_ENC_KEY_BASE64 is required; run scripts/gen-secrets.ps1")
+	}
+	aesgcm, err := cryptox.NewAESGCMFromBase64(cryptoCfg.DataKeyBase64)
+	if err != nil {
+		log.Fatal().Err(err).Msg("init encryption")
+	}
+
 	signer, err := jwtx.NewSignerFromFileWithPassphrase(jwtCfg.PrivateKey, jwtCfg.PrivateKeyPassphrase, jwtCfg.Issuer, jwtCfg.Audience, jwtCfg.AccessTTL, jwtCfg.RefreshTTL)
 	if err != nil {
 		log.Fatal().Err(err).Msg("load JWT private key")
@@ -49,8 +71,10 @@ func main() {
 		log.Fatal().Err(err).Msg("load JWT public key")
 	}
 
+	ldapClient := ldapauth.New(ldapCfg)
+
 	repository := repo.New(pool)
-	h := http.NewHandler(repository, signer, verifier, jwtCfg.AccessTTL, jwtCfg.RefreshTTL)
+	h := http.NewHandler(repository, signer, verifier, aesgcm, ldapClient, jwtCfg.Issuer, jwtCfg.AccessTTL, jwtCfg.RefreshTTL)
 
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -60,7 +84,12 @@ func main() {
 	app.Use(requestid.New())
 	app.Use(recover.New())
 	app.Use(cors.New())
-	app.Use(limiter.New(limiter.Config{Max: common.RateLimitPerMin, Expiration: time.Minute}))
+	app.Use(httpx.RateLimit(httpx.RateLimitConfig{
+		Service: common.ServiceName,
+		Redis:   rdb,
+		Max:     common.RateLimitPerMin,
+		Window:  time.Minute,
+	}))
 
 	m := metrics.NewHTTPMetrics(common.ServiceName)
 	app.Use(m.Middleware())

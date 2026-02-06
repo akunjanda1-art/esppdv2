@@ -1,0 +1,8 @@
+BEGIN;
+
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS mfa_secret_enc BYTEA,
+  ADD COLUMN IF NOT EXISTS mfa_enrolled_at TIMESTAMPTZ;
+
+COMMIT;
+

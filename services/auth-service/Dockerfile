@@ -2,7 +2,6 @@ FROM golang:1.22-alpine AS build
 WORKDIR /src
 
 # Workspace files (for local shared module)
-COPY go.work ./
 COPY shared/go.mod shared/go.sum ./shared/
 COPY services/auth-service/go.mod services/auth-service/go.sum ./services/auth-service/
 
@@ -19,4 +18,3 @@ COPY --from=build /out/auth-service /auth-service
 EXPOSE 8001
 USER nonroot:nonroot
 ENTRYPOINT ["/auth-service"]
-

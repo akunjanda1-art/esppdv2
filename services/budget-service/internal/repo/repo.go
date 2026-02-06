@@ -1,4 +1,4 @@
-﻿package repo
+package repo
 
 import (
 	"context"
@@ -50,7 +50,7 @@ func (r *Repo) CreateBudget(ctx context.Context, userID int64, role string, unit
 
 func (r *Repo) GetBudget(ctx context.Context, userID int64, role string, id int64) (*BudgetRow, error) {
 	var out *BudgetRow
-	err := r.pool.WithTx(ctx, pgx.TxOptions{ReadOnly: true}, func(tx pgx.Tx) error {
+	err := r.pool.WithTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly}, func(tx pgx.Tx) error {
 		if err := db.SetRLSContext(ctx, tx, userID, role); err != nil {
 			return err
 		}

@@ -1,13 +1,14 @@
-﻿go 1.22
+go 1.22.0
 
 use (
-	./shared
-	./services/auth-service
-	./services/spd-service
 	./services/approval-service
+	./services/audit-service
+	./services/auth-service
+	./services/budget-service
 	./services/document-service
 	./services/notification-service
 	./services/reporting-service
-	./services/budget-service
-	./services/audit-service
+	./services/spd-service
+	./shared
+	./tools/etl
 )

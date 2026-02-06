@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+compose-build.log
+secrets
+tools/etl/etl-input
+**/.DS_Store
+**/node_modules
+**/bin
+**/obj
+**/*.exe

@@ -1,4 +1,4 @@
-﻿package repo
+package repo
 
 import (
 	"context"
@@ -53,7 +53,7 @@ func (r *Repo) CreateSPD(ctx context.Context, userID int64, role string, nomorSu
 
 func (r *Repo) GetSPD(ctx context.Context, userID int64, role string, id int64) (*SPDRow, error) {
 	var out *SPDRow
-	err := r.pool.WithTx(ctx, pgx.TxOptions{ReadOnly: true}, func(tx pgx.Tx) error {
+	err := r.pool.WithTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly}, func(tx pgx.Tx) error {
 		if err := db.SetRLSContext(ctx, tx, userID, role); err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ func (r *Repo) GetSPD(ctx context.Context, userID int64, role string, id int64) 
 
 func (r *Repo) ListSPDs(ctx context.Context, userID int64, role string, limit, offset int) ([]SPDRow, error) {
 	out := make([]SPDRow, 0, limit)
-	err := r.pool.WithTx(ctx, pgx.TxOptions{ReadOnly: true}, func(tx pgx.Tx) error {
+	err := r.pool.WithTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly}, func(tx pgx.Tx) error {
 		if err := db.SetRLSContext(ctx, tx, userID, role); err != nil {
 			return err
 		}

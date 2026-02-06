@@ -1,4 +1,4 @@
-﻿package http
+package http
 
 import (
 	"encoding/json"
@@ -43,14 +43,14 @@ type createRequest struct {
 }
 
 type spdResponse struct {
-	ID         int64   `json:"id"`
-	NomorSurat string  `json:"nomor_surat"`
-	EmployeeID *int64  `json:"employee_id"`
-	UnitID     int64   `json:"unit_id"`
-	Purpose    string  `json:"purpose"`
-	TotalCost  string  `json:"total_cost"`
-	Status     string  `json:"status"`
-	CreatedBy  int64   `json:"created_by"`
+	ID         int64  `json:"id"`
+	NomorSurat string `json:"nomor_surat"`
+	EmployeeID *int64 `json:"employee_id"`
+	UnitID     int64  `json:"unit_id"`
+	Purpose    string `json:"purpose"`
+	TotalCost  string `json:"total_cost"`
+	Status     string `json:"status"`
+	CreatedBy  int64  `json:"created_by"`
 	CreatedAt  string `json:"created_at"`
 	UpdatedAt  string `json:"updated_at"`
 }

@@ -1,4 +1,4 @@
-﻿package repo
+package repo
 
 import (
 	"context"
@@ -21,34 +21,37 @@ type User struct {
 	Username     string
 	Role         string
 	PasswordHash string
+	IsActive     bool
+	MFAEnabled   bool
+	MFASecretEnc []byte
 }
 
 func (r *Repo) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, username, role, password_hash
+		SELECT id, username, role, password_hash, is_active, mfa_enabled, COALESCE(mfa_secret_enc, ''::bytea)
 		FROM users
 		WHERE username = $1 AND deleted_at IS NULL
 	`, username)
 
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.IsActive, &u.MFAEnabled, &u.MFASecretEnc); err != nil {
 		return nil, err
 	}
 	return &u, nil
 }
 
 func (r *Repo) GetUserByID(ctx context.Context, id int64) (*User, error) {
-\trow := r.pool.QueryRow(ctx, `
-\t\tSELECT id, username, role, password_hash
-\t\tFROM users
-\t\tWHERE id = $1 AND deleted_at IS NULL
-\t`, id)
+	row := r.pool.QueryRow(ctx, `
+		SELECT id, username, role, password_hash, is_active, mfa_enabled, COALESCE(mfa_secret_enc, ''::bytea)
+		FROM users
+		WHERE id = $1 AND deleted_at IS NULL
+	`, id)
 
-\tvar u User
-\tif err := row.Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash); err != nil {
-\t\treturn nil, err
-\t}
-\treturn &u, nil
+	var u User
+	if err := row.Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.IsActive, &u.MFAEnabled, &u.MFASecretEnc); err != nil {
+		return nil, err
+	}
+	return &u, nil
 }
 
 type RefreshToken struct {
@@ -87,6 +90,33 @@ func (r *Repo) RevokeRefreshToken(ctx context.Context, id string, replacedBy *st
 		SET revoked_at = NOW(), replaced_by = $2
 		WHERE id = $1 AND revoked_at IS NULL
 	`, id, replacedBy)
+	return err
+}
+
+func (r *Repo) SetMFASecret(ctx context.Context, userID int64, secretEnc []byte) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE users
+		SET mfa_secret_enc = $2
+		WHERE id = $1 AND deleted_at IS NULL
+	`, userID, secretEnc)
+	return err
+}
+
+func (r *Repo) EnableMFA(ctx context.Context, userID int64) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE users
+		SET mfa_enabled = TRUE, mfa_enrolled_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+	`, userID)
+	return err
+}
+
+func (r *Repo) DisableMFA(ctx context.Context, userID int64) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE users
+		SET mfa_enabled = FALSE, mfa_secret_enc = NULL, mfa_enrolled_at = NULL
+		WHERE id = $1 AND deleted_at IS NULL
+	`, userID)
 	return err
 }
 

@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -10,15 +10,16 @@ import (
 
 	"esppd.local/reporting-service/internal/http"
 	"esppd.local/reporting-service/internal/repo"
+	"esppd.local/shared/cachex"
 	"esppd.local/shared/config"
 	"esppd.local/shared/db"
 	"esppd.local/shared/httpx"
 	"esppd.local/shared/jwtx"
 	"esppd.local/shared/logging"
 	"esppd.local/shared/metrics"
+	"esppd.local/shared/redisx"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/rs/zerolog/log"
@@ -27,6 +28,7 @@ import (
 func main() {
 	common := config.LoadCommon("reporting-service", "REPORTING_SERVICE_PORT", 8006)
 	pg := config.LoadPostgres()
+	redisCfg := config.LoadRedis()
 	jwtCfg := config.LoadJWT()
 
 	_ = logging.New(common.ServiceName, common.LogLevel, common.Env)
@@ -40,13 +42,22 @@ func main() {
 	}
 	defer pool.Close()
 
+	rdb := redisx.NewClient(redisCfg)
+	if err := redisx.Ping(ctx, rdb); err != nil {
+		log.Warn().Err(err).Msg("redis unavailable; caching disabled and falling back to in-memory rate limit")
+		rdb = nil
+	} else {
+		defer func() { _ = rdb.Close() }()
+	}
+	cache := cachex.New(rdb, "reporting")
+
 	verifier, err := jwtx.NewVerifierFromFile(jwtCfg.PublicKey, jwtCfg.Issuer, jwtCfg.Audience)
 	if err != nil {
 		log.Fatal().Err(err).Msg("load JWT public key")
 	}
 
 	repository := repo.New(pool)
-	h := http.NewHandler(repository, verifier)
+	h := http.NewHandler(repository, verifier, cache)
 
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -56,7 +67,12 @@ func main() {
 	app.Use(requestid.New())
 	app.Use(recover.New())
 	app.Use(cors.New())
-	app.Use(limiter.New(limiter.Config{Max: common.RateLimitPerMin, Expiration: time.Minute}))
+	app.Use(httpx.RateLimit(httpx.RateLimitConfig{
+		Service: common.ServiceName,
+		Redis:   rdb,
+		Max:     common.RateLimitPerMin,
+		Window:  time.Minute,
+	}))
 
 	m := metrics.NewHTTPMetrics(common.ServiceName)
 	app.Use(m.Middleware())

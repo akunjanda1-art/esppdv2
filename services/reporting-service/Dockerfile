@@ -1,7 +1,6 @@
 FROM golang:1.22-alpine AS build
 WORKDIR /src
 
-COPY go.work ./
 COPY shared/go.mod shared/go.sum ./shared/
 COPY services/reporting-service/go.mod services/reporting-service/go.sum ./services/reporting-service/
 
@@ -18,4 +17,3 @@ COPY --from=build /out/reporting-service /reporting-service
 EXPOSE 8006
 USER nonroot:nonroot
 ENTRYPOINT ["/reporting-service"]
-

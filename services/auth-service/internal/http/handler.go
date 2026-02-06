@@ -1,4 +1,4 @@
-﻿package http
+package http
 
 import (
 	"crypto/rand"
@@ -6,10 +6,14 @@ import (
 	"net/http"
 	"time"
 
+	"esppd.local/auth-service/internal/ldap"
 	"esppd.local/auth-service/internal/repo"
+	"esppd.local/shared/cryptox"
 	"esppd.local/shared/httpx"
 	"esppd.local/shared/jwtx"
+	"esppd.local/shared/mfax"
 	"github.com/gofiber/fiber/v2"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -17,12 +21,27 @@ type Handler struct {
 	repo       *repo.Repo
 	signer     *jwtx.Signer
 	verifier   *jwtx.Verifier
+	aesgcm     *cryptox.AESGCM
+	ldap       *ldapauth.Client
+	mfaIssuer  string
 	accessTTL  time.Duration
 	refreshTTL time.Duration
 }
 
-func NewHandler(r *repo.Repo, signer *jwtx.Signer, verifier *jwtx.Verifier, accessTTL, refreshTTL time.Duration) *Handler {
-	return &Handler{repo: r, signer: signer, verifier: verifier, accessTTL: accessTTL, refreshTTL: refreshTTL}
+func NewHandler(r *repo.Repo, signer *jwtx.Signer, verifier *jwtx.Verifier, aesgcm *cryptox.AESGCM, ldap *ldapauth.Client, mfaIssuer string, accessTTL, refreshTTL time.Duration) *Handler {
+	if mfaIssuer == "" {
+		mfaIssuer = "esppd"
+	}
+	return &Handler{
+		repo:       r,
+		signer:     signer,
+		verifier:   verifier,
+		aesgcm:     aesgcm,
+		ldap:       ldap,
+		mfaIssuer:  mfaIssuer,
+		accessTTL:  accessTTL,
+		refreshTTL: refreshTTL,
+	}
 }
 
 func (h *Handler) RegisterRoutes(r fiber.Router) {
@@ -31,11 +50,15 @@ func (h *Handler) RegisterRoutes(r fiber.Router) {
 	auth.Post("/refresh", h.Refresh)
 	auth.Post("/logout", httpx.JWTAuth(h.verifier, true), h.Logout)
 	auth.Get("/me", httpx.JWTAuth(h.verifier, true), h.Me)
+	auth.Post("/mfa/enroll", httpx.JWTAuth(h.verifier, true), h.MFAEnroll)
+	auth.Post("/mfa/verify", httpx.JWTAuth(h.verifier, true), h.MFAVerify)
+	auth.Delete("/mfa", httpx.JWTAuth(h.verifier, true), h.MFADisable)
 }
 
 type loginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	OTP      string `json:"otp,omitempty"`
 }
 
 type tokenResponse struct {
@@ -62,8 +85,45 @@ func (h *Handler) Login(c *fiber.Ctx) error {
 		return err
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+	if !user.IsActive {
 		return fiber.NewError(http.StatusUnauthorized, "invalid credentials")
+	}
+
+	authed := false
+	if h.ldap != nil && h.ldap.Enabled() && (h.ldap.Mode() == "prefer" || h.ldap.Mode() == "required") {
+		ok, err := h.ldap.Authenticate(c.Context(), req.Username, req.Password)
+		if err != nil {
+			if h.ldap.Mode() == "required" {
+				return fiber.NewError(http.StatusUnauthorized, "invalid credentials")
+			}
+			log.Warn().Err(err).Msg("ldap auth error; falling back to local auth")
+		} else if ok {
+			authed = true
+		} else if h.ldap.Mode() == "required" {
+			return fiber.NewError(http.StatusUnauthorized, "invalid credentials")
+		}
+	}
+
+	if !authed {
+		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+			return fiber.NewError(http.StatusUnauthorized, "invalid credentials")
+		}
+	}
+
+	if user.MFAEnabled {
+		if len(user.MFASecretEnc) == 0 {
+			return fiber.NewError(http.StatusUnauthorized, "invalid credentials")
+		}
+		secret, err := h.aesgcm.DecryptString(user.MFASecretEnc, []byte("users:mfa_secret"))
+		if err != nil {
+			return err
+		}
+		if req.OTP == "" {
+			return fiber.NewError(http.StatusUnauthorized, "mfa_required")
+		}
+		if !mfax.VerifyTOTP(secret, req.OTP, time.Now().UTC(), 6, 30*time.Second, 1) {
+			return fiber.NewError(http.StatusUnauthorized, "invalid credentials")
+		}
 	}
 
 	accessJTI, err := newTokenID(16)
@@ -186,6 +246,93 @@ func (h *Handler) Me(c *fiber.Ctx) error {
 		"user_id": a.UserID,
 		"role":    a.Role,
 	})
+}
+
+type mfaEnrollResponse struct {
+	Secret     string `json:"secret"`
+	OTPAuthURL string `json:"otpauth_url"`
+}
+
+func (h *Handler) MFAEnroll(c *fiber.Ctx) error {
+	a, ok := httpx.AuthFromLocals(c)
+	if !ok {
+		return fiber.NewError(http.StatusUnauthorized, "unauthorized")
+	}
+
+	user, err := h.repo.GetUserByID(c.Context(), a.UserID)
+	if err != nil {
+		return fiber.NewError(http.StatusUnauthorized, "unauthorized")
+	}
+	if user.MFAEnabled {
+		return fiber.NewError(http.StatusBadRequest, "mfa already enabled")
+	}
+
+	secret, err := mfax.GenerateSecretBase32(20)
+	if err != nil {
+		return err
+	}
+	secretEnc, err := h.aesgcm.EncryptString(secret, []byte("users:mfa_secret"))
+	if err != nil {
+		return err
+	}
+	if err := h.repo.SetMFASecret(c.Context(), a.UserID, secretEnc); err != nil {
+		return err
+	}
+
+	return c.JSON(mfaEnrollResponse{
+		Secret:     secret,
+		OTPAuthURL: mfax.OTPAuthURL(h.mfaIssuer, user.Username, secret, 6, 30*time.Second),
+	})
+}
+
+type mfaVerifyRequest struct {
+	Code string `json:"code"`
+}
+
+func (h *Handler) MFAVerify(c *fiber.Ctx) error {
+	a, ok := httpx.AuthFromLocals(c)
+	if !ok {
+		return fiber.NewError(http.StatusUnauthorized, "unauthorized")
+	}
+	var req mfaVerifyRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(http.StatusBadRequest, "invalid json")
+	}
+	if req.Code == "" {
+		return fiber.NewError(http.StatusBadRequest, "code required")
+	}
+
+	user, err := h.repo.GetUserByID(c.Context(), a.UserID)
+	if err != nil {
+		return fiber.NewError(http.StatusUnauthorized, "unauthorized")
+	}
+	if len(user.MFASecretEnc) == 0 {
+		return fiber.NewError(http.StatusBadRequest, "mfa not enrolled")
+	}
+
+	secret, err := h.aesgcm.DecryptString(user.MFASecretEnc, []byte("users:mfa_secret"))
+	if err != nil {
+		return err
+	}
+	if !mfax.VerifyTOTP(secret, req.Code, time.Now().UTC(), 6, 30*time.Second, 1) {
+		return fiber.NewError(http.StatusUnauthorized, "invalid code")
+	}
+
+	if err := h.repo.EnableMFA(c.Context(), a.UserID); err != nil {
+		return err
+	}
+	return c.SendStatus(http.StatusNoContent)
+}
+
+func (h *Handler) MFADisable(c *fiber.Ctx) error {
+	a, ok := httpx.AuthFromLocals(c)
+	if !ok {
+		return fiber.NewError(http.StatusUnauthorized, "unauthorized")
+	}
+	if err := h.repo.DisableMFA(c.Context(), a.UserID); err != nil {
+		return err
+	}
+	return c.SendStatus(http.StatusNoContent)
 }
 
 func newTokenID(bytesLen int) (string, error) {
