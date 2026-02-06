@@ -83,6 +83,8 @@ Proyek eSPPD telah diubah **total** dari monolith menjadi **arsitektur microserv
  - `docker compose build` dicoba pada **2026-02-06**, namun **gagal** karena error engine Docker:
    - `request returned 500 Internal Server Error ... /_ping`
    - Pada percobaan lain: `rpc error: code = Unavailable desc = error reading from server: EOF`
+ - `docker compose up -d --build` dicoba pada **2026-02-06**, namun **gagal** karena error engine Docker:
+   - `unable to get image 'esppd-spd-service': request returned 500 Internal Server Error ... /v1.51/images/.../json`
 
 ## Batasan / Yang Belum (Penting untuk “Full Migration” sebenarnya)
 - **ETL legacy belum dijalankan** karena membutuhkan akses database lama + mapping data nyata (tool `tools/etl` sudah ada).
