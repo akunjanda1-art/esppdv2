@@ -43,6 +43,9 @@ Proyek eSPPD telah diubah **total** dari monolith menjadi **arsitektur microserv
 - **JWT RS256** (auth-service) dengan refresh token rotation.
 - **MFA TOTP** (RFC6238) dengan endpoint enroll/verify/disable.
 - **LDAP Authentication** (mode: disabled/prefer/required).
+- **Auth hardening**:
+  - Refresh token hanya berlaku jika user masih aktif + user ID match.
+  - Disable MFA mewajibkan OTP valid.
 - **AES-256-GCM field-level encryption**:
   - `spds.purpose_enc`, `spds.total_cost_enc`
   - `budgets.amount_enc`, `budgets.source_enc`
