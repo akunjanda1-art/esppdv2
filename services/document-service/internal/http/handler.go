@@ -136,8 +136,14 @@ func (h *Handler) processJob(ctx context.Context, j job) (*documentResult, error
 		return nil, err
 	}
 
-	purpose, _ := h.aesgcm.DecryptString(spd.PurposeEnc, []byte("spds:purpose"))
-	total, _ := h.aesgcm.DecryptString(spd.TotalCostEnc, []byte("spds:total_cost"))
+	purpose, err := h.aesgcm.DecryptString(spd.PurposeEnc, []byte("spds:purpose"))
+	if err != nil {
+		return nil, err
+	}
+	total, err := h.aesgcm.DecryptString(spd.TotalCostEnc, []byte("spds:total_cost"))
+	if err != nil {
+		return nil, err
+	}
 
 	content, contentType, ext, err := buildDocument(j.Format, spd.NomorSurat, purpose, total)
 	if err != nil {

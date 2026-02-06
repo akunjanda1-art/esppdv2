@@ -82,7 +82,11 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 
 	h.publishAudit("CREATE_BUDGET", "budget", row.ID, a, c)
 
-	return c.Status(http.StatusCreated).JSON(h.toResponse(row, a.Role))
+	resp, err := h.toResponse(row, a.Role)
+	if err != nil {
+		return err
+	}
+	return c.Status(http.StatusCreated).JSON(resp)
 }
 
 func (h *Handler) Get(c *fiber.Ctx) error {
@@ -105,19 +109,27 @@ func (h *Handler) Get(c *fiber.Ctx) error {
 
 	h.publishAudit("VIEW_BUDGET", "budget", row.ID, a, c)
 
-	return c.JSON(h.toResponse(row, a.Role))
+	resp, err := h.toResponse(row, a.Role)
+	if err != nil {
+		return err
+	}
+	return c.JSON(resp)
 }
 
-func (h *Handler) toResponse(r *repo.BudgetRow, role string) budgetResponse {
+func (h *Handler) toResponse(r *repo.BudgetRow, role string) (budgetResponse, error) {
 	amount := "***"
 	source := "***"
 	if canViewBudgetAmounts(role) {
-		if v, err := h.aesgcm.DecryptString(r.AmountEnc, []byte("budgets:amount")); err == nil {
-			amount = v
+		v, err := h.aesgcm.DecryptString(r.AmountEnc, []byte("budgets:amount"))
+		if err != nil {
+			return budgetResponse{}, err
 		}
-		if v, err := h.aesgcm.DecryptString(r.SourceEnc, []byte("budgets:source")); err == nil {
-			source = v
+		amount = v
+		v, err = h.aesgcm.DecryptString(r.SourceEnc, []byte("budgets:source"))
+		if err != nil {
+			return budgetResponse{}, err
 		}
+		source = v
 	}
 
 	return budgetResponse{
@@ -129,7 +141,7 @@ func (h *Handler) toResponse(r *repo.BudgetRow, role string) budgetResponse {
 		CreatedBy:   r.CreatedBy,
 		CreatedAt:   r.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:   r.UpdatedAt.UTC().Format(time.RFC3339),
-	}
+	}, nil
 }
 
 func canManageBudget(role string) bool {

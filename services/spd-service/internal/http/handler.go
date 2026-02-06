@@ -82,7 +82,11 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	return c.Status(http.StatusCreated).JSON(h.toResponse(row))
+	resp, err := h.toResponse(row)
+	if err != nil {
+		return err
+	}
+	return c.Status(http.StatusCreated).JSON(resp)
 }
 
 func (h *Handler) Get(c *fiber.Ctx) error {
@@ -102,7 +106,11 @@ func (h *Handler) Get(c *fiber.Ctx) error {
 		}
 		return err
 	}
-	return c.JSON(h.toResponse(row))
+	resp, err := h.toResponse(row)
+	if err != nil {
+		return err
+	}
+	return c.JSON(resp)
 }
 
 func (h *Handler) List(c *fiber.Ctx) error {
@@ -121,7 +129,11 @@ func (h *Handler) List(c *fiber.Ctx) error {
 	out := make([]spdResponse, 0, len(rows))
 	for i := range rows {
 		r := rows[i]
-		out = append(out, h.toResponse(&r))
+		resp, err := h.toResponse(&r)
+		if err != nil {
+			return err
+		}
+		out = append(out, resp)
 	}
 	return c.JSON(fiber.Map{
 		"items":  out,
@@ -155,7 +167,11 @@ func (h *Handler) Submit(c *fiber.Ctx) error {
 		}
 	}
 
-	return c.JSON(h.toResponse(row))
+	resp, err := h.toResponse(row)
+	if err != nil {
+		return err
+	}
+	return c.JSON(resp)
 }
 
 type SPDSubmittedEvent struct {
@@ -165,9 +181,15 @@ type SPDSubmittedEvent struct {
 	SubmittedAt time.Time `json:"submitted_at"`
 }
 
-func (h *Handler) toResponse(r *repo.SPDRow) spdResponse {
-	purpose, _ := h.aesgcm.DecryptString(r.PurposeEnc, []byte("spds:purpose"))
-	total, _ := h.aesgcm.DecryptString(r.TotalCostEnc, []byte("spds:total_cost"))
+func (h *Handler) toResponse(r *repo.SPDRow) (spdResponse, error) {
+	purpose, err := h.aesgcm.DecryptString(r.PurposeEnc, []byte("spds:purpose"))
+	if err != nil {
+		return spdResponse{}, err
+	}
+	total, err := h.aesgcm.DecryptString(r.TotalCostEnc, []byte("spds:total_cost"))
+	if err != nil {
+		return spdResponse{}, err
+	}
 
 	return spdResponse{
 		ID:         r.ID,
@@ -180,7 +202,7 @@ func (h *Handler) toResponse(r *repo.SPDRow) spdResponse {
 		CreatedBy:  r.CreatedBy,
 		CreatedAt:  r.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:  r.UpdatedAt.UTC().Format(time.RFC3339),
-	}
+	}, nil
 }
 
 func parseInt(s string, def int) int {

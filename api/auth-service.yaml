@@ -111,6 +111,15 @@ paths:
       summary: Disable MFA
       security:
         - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, description: "Current TOTP code to disable MFA" }
       responses:
         '204': { description: MFA disabled }
 components:

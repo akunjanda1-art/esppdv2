@@ -181,12 +181,18 @@ func (h *Handler) Refresh(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(http.StatusUnauthorized, "refresh token revoked")
 	}
+	if rec.UserID != claims.UserID {
+		return fiber.NewError(http.StatusUnauthorized, "refresh token revoked")
+	}
 	if rec.RevokedAt != nil || time.Now().After(rec.ExpiresAt) {
 		return fiber.NewError(http.StatusUnauthorized, "refresh token revoked")
 	}
 
 	user, err := h.repo.GetUserByID(c.Context(), rec.UserID)
 	if err != nil {
+		return fiber.NewError(http.StatusUnauthorized, "invalid user")
+	}
+	if !user.IsActive {
 		return fiber.NewError(http.StatusUnauthorized, "invalid user")
 	}
 
@@ -226,11 +232,18 @@ func (h *Handler) Refresh(c *fiber.Ctx) error {
 
 func (h *Handler) Logout(c *fiber.Ctx) error {
 	// For now: revoke refresh token provided in body.
+	a, ok := httpx.AuthFromLocals(c)
+	if !ok {
+		return fiber.NewError(http.StatusUnauthorized, "unauthorized")
+	}
 	var req refreshRequest
 	_ = c.BodyParser(&req)
 	if req.RefreshToken != "" {
 		claims, err := h.verifier.ParseAndValidate(req.RefreshToken)
 		if err == nil {
+			if claims.UserID != a.UserID {
+				return fiber.NewError(http.StatusForbidden, "forbidden")
+			}
 			_ = h.repo.RevokeRefreshToken(c.Context(), claims.ID, nil)
 		}
 	}
@@ -328,6 +341,36 @@ func (h *Handler) MFADisable(c *fiber.Ctx) error {
 	a, ok := httpx.AuthFromLocals(c)
 	if !ok {
 		return fiber.NewError(http.StatusUnauthorized, "unauthorized")
+	}
+	user, err := h.repo.GetUserByID(c.Context(), a.UserID)
+	if err != nil {
+		return fiber.NewError(http.StatusUnauthorized, "unauthorized")
+	}
+	if !user.MFAEnabled {
+		return c.SendStatus(http.StatusNoContent)
+	}
+
+	type mfaDisableRequest struct {
+		Code string `json:"code"`
+	}
+	var req mfaDisableRequest
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(&req); err != nil {
+			return fiber.NewError(http.StatusBadRequest, "invalid json")
+		}
+	}
+	if req.Code == "" {
+		return fiber.NewError(http.StatusBadRequest, "code required")
+	}
+	if len(user.MFASecretEnc) == 0 {
+		return fiber.NewError(http.StatusBadRequest, "mfa not enrolled")
+	}
+	secret, err := h.aesgcm.DecryptString(user.MFASecretEnc, []byte("users:mfa_secret"))
+	if err != nil {
+		return err
+	}
+	if !mfax.VerifyTOTP(secret, req.Code, time.Now().UTC(), 6, 30*time.Second, 1) {
+		return fiber.NewError(http.StatusUnauthorized, "invalid code")
 	}
 	if err := h.repo.DisableMFA(c.Context(), a.UserID); err != nil {
 		return err
